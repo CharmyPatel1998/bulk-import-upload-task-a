@@ -33,6 +33,10 @@ class ProcessCsvRow implements ShouldQueue
         // 1. Validate required columns
         $sku  = $this->record['sku'] ?? null;
         $name = $this->record['name'] ?? null;
+        if (!$sku || !$name) {
+            Log::warning('Invalid row skipped', $this->record);
+            return;
+        }
 
         // 2. Upsert Product
         $product = Product::updateOrCreate(
