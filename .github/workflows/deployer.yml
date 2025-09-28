@@ -1,3 +1,17 @@
+name: Laravel Deployer
+
+on:
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Enter the branch name to deploy'
+        required: true
+        default: 'main'
+        type: string
+
 jobs:
   test:
     runs-on: ubuntu-latest
