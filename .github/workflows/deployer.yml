@@ -46,7 +46,7 @@ jobs:
 
       # 6. Run Laravel tests
       - name: Run Laravel tests
-        run: php artisan test --env=testing --verbose
+        run: php artisan test
 
   deploy:
     runs-on: ubuntu-latest
