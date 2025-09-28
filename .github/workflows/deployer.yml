@@ -39,17 +39,14 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
-          
+
       # 5. Run migrations for testing
       - name: Run migrations
         run: php artisan migrate --env=testing --force
 
       # 6. Run Laravel tests
       - name: Run Laravel tests
-        run: |
-          php artisan key:generate
-          php artisan test --env=testing
-
+        run: php artisan test
 
   deploy:
     runs-on: ubuntu-latest
