@@ -41,12 +41,6 @@ jobs:
           php artisan key:generate
           php artisan config:clear
           php artisan cache:clear
-          # Ensure SQLite file exists
-          mkdir -p database
-          touch database/database.sqlite
-          # Set DB connection for testing
-          echo "DB_CONNECTION=sqlite" >> .env
-          echo "DB_DATABASE=${GITHUB_WORKSPACE}/database/database.sqlite" >> .env
 
 
       # 5. Run migrations for testing
