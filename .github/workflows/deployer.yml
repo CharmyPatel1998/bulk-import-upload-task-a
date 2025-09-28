@@ -32,9 +32,7 @@ jobs:
         run: composer install --no-progress --prefer-dist --no-interaction
 
       - name: Set up Laravel environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate
+        run:  php artisan key:generate
 
       - name: Run Laravel tests
         run: php artisan test
