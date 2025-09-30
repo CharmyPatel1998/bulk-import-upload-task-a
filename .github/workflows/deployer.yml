@@ -1,0 +1,70 @@
+name: Laravel CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        required: true
+        default: 'main'
+        type: string
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      # 2. Set up PHP
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.2
+          extensions: mbstring, intl, bcmath, curl, pdo_mysql
+          coverage: none
+
+      # 3. Install Composer dependencies
+      - name: Install Composer dependencies
+        run: composer install --no-progress --prefer-dist --no-interaction
+
+      # 4. Set up Laravel environment
+      - name: Set up Laravel environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # 5. Run migrations for testing
+      - name: Run migrations
+        run: php artisan migrate --env=testing --force
+
+      # 6. Run Laravel tests
+      - name: Run Laravel tests
+        run: php artisan test
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: test   # ✅ Only deploy if tests pass
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      # Deployment placeholder (configure your method)
+      - name: Deploy to Server
+        run: echo "Add your deploy commands here (SSH, rsync, FTP, etc.)"
+      
+      # Optional: run post-deploy Laravel commands
+      - name: Post-deploy commands
+        run: |
+          echo "php artisan migrate --force"
+          echo "php artisan config:clear"
+          echo "php artisan cache:clear"
+          echo "php artisan queue:restart"
