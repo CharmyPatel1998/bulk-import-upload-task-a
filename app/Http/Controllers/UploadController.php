@@ -6,10 +6,14 @@ use App\Models\Upload;
 use App\Models\Image;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\Facades\Image as InterventionImage;
 
 class UploadController extends Controller
 {
+    public function showForm()
+    {
+        return view('upload-form'); // Your upload form view
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -17,46 +21,34 @@ class UploadController extends Controller
         ]);
 
         $file = $request->file('file');
-        $checksum = md5_file($file->getRealPath());
-
-        // Check duplicates
-        $existing = Upload::where('checksum', $checksum)->first();
-        if ($existing) {
-            return response()->json([
-                'message' => 'File already uploaded',
-                'upload_id' => $existing->id,
-            ]);
-        }
 
         // Store original file
-        $path = $file->store('uploads/original', 'public');
+        $originalPath = $file->store('uploads/original', 'public');
 
         // Create Upload record
         $upload = Upload::create([
-            'filename' => basename($path),
-            'checksum' => $checksum,
+            'filename' => $file->hashName(),
+            'checksum' => md5_file($file->getRealPath()),
             'completed' => false,
         ]);
 
-        // Generate variants (256, 512, 1024)
-        $variants = [];
-        $sizes = [256, 512, 1024];
-        foreach ($sizes as $width) {
-            $variant = InterventionImage::make($file->getRealPath())
-                ->resize($width, null, function ($c) {
-                    $c->aspectRatio();
-                    $c->upsize();
-                });
-
-            $variantPath = "uploads/variants/{$upload->id}_{$width}.jpg";
-            Storage::disk('public')->put($variantPath, (string) $variant->encode('jpg', 90));
-            $variants[$width] = $variantPath;
+        // Load image with GD
+        $imageResource = $this->createImageResource($file->getRealPath());
+        if (!$imageResource) {
+            return response()->json(['message' => 'Invalid image file'], 422);
         }
 
-        // Save Image record with JSON variants
+        // Generate variants
+        $sizes = [256, 512, 1024];
+        $variants = [];
+        foreach ($sizes as $size) {
+            $variants[$size] = $this->resizeAndSave($imageResource, $size, $upload->id, $file->hashName());
+        }
+
+        // Save Image record
         Image::create([
             'upload_id' => $upload->id,
-            'path' => $path,
+            'path' => $originalPath,
             'variants' => $variants,
         ]);
 
@@ -64,9 +56,54 @@ class UploadController extends Controller
         $upload->completed = true;
         $upload->save();
 
-        return response()->json([
-            'message' => 'Upload successful',
-            'upload_id' => $upload->id,
-        ]);
+        return back()->with('success', 'Upload successful!');
     }
+
+    /**
+     * Create GD image resource from file.
+     */
+    private function createImageResource(string $filePath)
+    {
+        $info = getimagesize($filePath);
+        if (!$info) return null;
+
+        [$width, $height, $type] = $info;
+
+        return match ($type) {
+            IMAGETYPE_JPEG => imagecreatefromjpeg($filePath),
+            IMAGETYPE_PNG  => imagecreatefrompng($filePath),
+            IMAGETYPE_GIF  => imagecreatefromgif($filePath),
+            default        => null,
+        };
+    }
+
+    /**
+     * Resize image resource and save variant.
+     */
+    private function resizeAndSave($resource, int $newWidth, int $uploadId, string $originalName): string
+    {
+        $width = imagesx($resource);
+        $height = imagesy($resource);
+
+        $ratio = $height / $width;
+        $newHeight = intval($newWidth * $ratio);
+
+        $tmp = imagecreatetruecolor($newWidth, $newHeight);
+        imagecopyresampled($tmp, $resource, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+
+        $variantPath = "uploads/variants/{$uploadId}_{$newWidth}_{$originalName}";
+        $fullPath = storage_path("app/public/{$variantPath}");
+
+        // Ensure directory exists
+        $dir = dirname($fullPath);
+        if (!file_exists($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        imagejpeg($tmp, $fullPath, 90); // Save as JPEG
+        imagedestroy($tmp);
+
+        return $variantPath;
+    }
+
 }
