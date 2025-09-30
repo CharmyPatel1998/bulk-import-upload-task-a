@@ -9,7 +9,6 @@ use App\Models\Product;
 use App\Models\Upload;
 use App\Models\Image;
 use App\Jobs\ProcessCsvRow;
-use Intervention\Image\Facades\Image as InterventionImage;
 use PHPUnit\Framework\Attributes\Test;
 
 class ProcessCsvRowTest extends TestCase
